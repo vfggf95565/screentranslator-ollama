@@ -4,7 +4,7 @@
 
 // --- CONFIGURATION ---
 var OLLAMA_HOST = "http://127.0.0.1:11434"; // Default Ollama API address
-var PREFERRED_MODEL = "qwen2.5:7b";          // Recommended model for translations
+var PREFERRED_MODEL = "qwen2.5:0.5b";        // Adjusted to match your installed model
 var DEBUG_MODE = false;                      // Set to true to send logs to local port 3000
 // ---------------------
 
@@ -13,26 +13,29 @@ var cacheKeysQueue = [];
 var MAX_CACHE_SIZE = 100;
 var activeModel = ""; // Auto-detected or fallback model
 
+// Updated language names to English and added Arabic support
 var langNames = {
-    'en': 'английский',
-    'eng': 'английский',
-    'ru': 'русский',
-    'rus': 'русский',
-    'ja': 'японский',
-    'jpn': 'японский',
-    'zh': 'китайский',
-    'zh-CN': 'китайский',
-    'chi': 'китайский',
-    'de': 'немецкий',
-    'ger': 'немецкий',
-    'fr': 'французский',
-    'fre': 'французский',
-    'es': 'испанский',
-    'spa': 'испанский',
-    'it': 'итальянский',
-    'ita': 'итальянский',
-    'ko': 'корейский',
-    'kor': 'корейский'
+    'en': 'English',
+    'eng': 'English',
+    'ar': 'Arabic',
+    'ara': 'Arabic',
+    'ru': 'Russian',
+    'rus': 'Russian',
+    'ja': 'Japanese',
+    'jpn': 'Japanese',
+    'zh': 'Chinese',
+    'zh-CN': 'Chinese',
+    'chi': 'Chinese',
+    'de': 'German',
+    'ger': 'German',
+    'fr': 'French',
+    'fre': 'French',
+    'es': 'Spanish',
+    'spa': 'Spanish',
+    'it': 'Italian',
+    'ita': 'Italian',
+    'ko': 'Korean',
+    'kor': 'Korean'
 };
 
 function logToServer(msg) {
@@ -107,7 +110,6 @@ function selectModelAndTranslate(text, from, to) {
             var responseJson = JSON.parse(responseText);
             var modelsList = responseJson.models || [];
             
-            // Filter out embedding models (which cannot be used for text translation)
             var chatModels = [];
             for (var i = 0; i < modelsList.length; i++) {
                 var modelName = modelsList[i].name;
@@ -167,18 +169,15 @@ function selectModelAndTranslate(text, from, to) {
             }
             
             logToServer("Auto-detected active model: " + activeModel);
-            // Execute the translation with the newly selected model
             executeTranslation(text, from, to);
             
         } catch(e) {
             logToServer("Failed to parse Ollama tags response: " + e.toString());
-            // Fallback to preferred model name directly if tags check fails
             activeModel = PREFERRED_MODEL;
             executeTranslation(text, from, to);
         }
     }, function(errorMsg) {
-        logToServer("Ollama tags request failed (Ollama service might be down): " + errorMsg);
-        // Fallback to preferred model directly
+        logToServer("Ollama tags request failed: " + errorMsg);
         activeModel = PREFERRED_MODEL;
         executeTranslation(text, from, to);
     });
@@ -190,14 +189,13 @@ function executeTranslation(text, from, to) {
     
     var url = OLLAMA_HOST + "/api/generate";
     
-    // Convert language codes to Russian names for better LLM instruction understanding
     var fromLangName = langNames[from.toLowerCase()] || from;
     var toLangName = langNames[to.toLowerCase()] || to;
     
-    // Construct Russian prompt to instruct Qwen to translate strictly
-    var promptText = "Переведи этот текст с языка '" + fromLangName + "' на язык '" + toLangName + "'.\n" +
-                     "Выведи ТОЛЬКО готовый перевод, без каких-либо комментариев, пояснений, кавычек, сносок или оригинального текста. Результат должен содержать исключительно перевод.\n" +
-                     "Текст для перевода:\n" + cleanedText;
+    // Completely rewritten prompt in English for universal compatibility and better accuracy
+    var promptText = "Translate this text from '" + fromLangName + "' to '" + toLangName + "'.\n" +
+                     "Output ONLY the final translation. Do not include any commentary, explanations, quotes, footnotes, or the original text. The result must contain exclusively the translated text.\n" +
+                     "Text to translate:\n" + cleanedText;
     
     var maxTokens = Math.max(100, cleanedText.length * 2);
     
@@ -240,7 +238,7 @@ function executeTranslation(text, from, to) {
         }
     }, function(errorMsg) {
         logToServer("Ollama request failed: " + errorMsg);
-        proxy.setFailed("Ollama request failed. Make sure Ollama is running and has the model loaded. Details: " + errorMsg);
+        proxy.setFailed("Ollama request failed. Details: " + errorMsg);
     });
 }
 
@@ -261,7 +259,6 @@ function translate(text, from, to) {
         return;
     }
     
-    // If the active model hasn't been detected yet, detect it first
     if (activeModel === "") {
         selectModelAndTranslate(text, from, to);
     } else {
@@ -273,7 +270,6 @@ function init() {
     var currentUrl = window.location.href;
     logToServer("Init called. Current URL: " + currentUrl);
     
-    // Redirect to local Ollama same-origin domain to bypass CORS/PNA policies in QtWebEngine
     if (currentUrl.indexOf(OLLAMA_HOST) === -1) {
         logToServer("Redirecting WebView from " + currentUrl + " to " + OLLAMA_HOST + " to bypass security policies");
         window.location = OLLAMA_HOST;
